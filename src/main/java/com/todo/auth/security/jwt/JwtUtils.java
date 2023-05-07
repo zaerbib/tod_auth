@@ -2,10 +2,14 @@ package com.todo.auth.security.jwt;
 
 import com.todo.auth.security.UserDetailsImpl;
 import io.jsonwebtoken.*;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
+import org.springframework.web.util.WebUtils;
 
 import java.time.ZonedDateTime;
 import java.util.Date;
@@ -20,10 +24,36 @@ public class JwtUtils {
     @Value("${bezkoder.app.jwtExpirationMs}")
     private String jwtExpirationMs;
 
+    @Value("${bezkoder.app.jwtCookieName}")
+    private String jwtCookie;
+
     public String generateJwtToken(Authentication authentication) {
         UserDetailsImpl userPrincipal = (UserDetailsImpl) authentication.getPrincipal();
+        return generateTokenFromUsername(userPrincipal.getUsername());
+    }
 
-        return Jwts.builder().setSubject((userPrincipal.getUsername())).setIssuedAt(new Date())
+    public String getJwtFromCookies(HttpServletRequest request) {
+        Cookie cookie = WebUtils.getCookie(request, jwtCookie);
+        if(cookie != null) {
+            return cookie.getValue();
+        } else {
+            return null;
+        }
+    }
+
+    public ResponseCookie generateJwtCookie(UserDetailsImpl userPrincipal) {
+        String jwt = generateTokenFromUsername(userPrincipal.getUsername());
+        ResponseCookie cookie = ResponseCookie.from(jwtCookie, jwt).path("/api").maxAge(24*60*60).httpOnly(true).build();
+        return cookie;
+    }
+
+    public ResponseCookie getCleanJwtCookie() {
+        ResponseCookie cookie = ResponseCookie.from(jwtCookie, null).path("/api").build();
+        return cookie;
+    }
+
+    public String generateTokenFromUsername(String username) {
+        return Jwts.builder().setSubject(username).setIssuedAt(new Date())
                 .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
                 .signWith(SignatureAlgorithm.HS512, jwtSecret)
                 .compact();

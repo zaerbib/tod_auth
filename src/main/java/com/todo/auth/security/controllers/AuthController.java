@@ -11,6 +11,9 @@ import com.todo.auth.security.payload.request.LoginRequest;
 import com.todo.auth.security.payload.request.SignupRequest;
 import com.todo.auth.security.payload.response.JwtResponse;
 import com.todo.auth.security.payload.response.MessageResponse;
+import com.todo.auth.security.payload.response.UserInfoResponse;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -56,12 +59,15 @@ public class AuthController {
         List<String> roles = userDetails.getAuthorities().stream().map(item -> item.getAuthority())
                 .collect(Collectors.toList());
 
-        return ResponseEntity.ok(JwtResponse.builder()
-                                            .accessToken(jwt)
-                                            .id(userDetails.getId())
-                                            .username(userDetails.getUsername())
-                                            .email(userDetails.getEmail())
-                                            .roles(roles).build());
+        ResponseCookie jwtCookie = jwtUtils.generateJwtCookie(userDetails);
+
+        return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, jwtCookie.toString())
+                .body(UserInfoResponse.builder()
+                        .id(userDetails.getId())
+                        .email(userDetails.getEmail())
+                        .username(userDetails.getUsername())
+                        .roles(roles)
+                        .build());
     }
 
     @PostMapping("/signup")
